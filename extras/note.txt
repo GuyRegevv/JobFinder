@@ -1,0 +1,13 @@
+Ok now that we got that working, lets take a step back. 
+Lets rebuild this tool the right way: 
+- the code should be seperated to modules and components, small files with one purpose. 
+- I want the functions to be easy to understand and follow, even in the cost of being more robust. 
+- I want the top level function that send the request to have input params that I can change easily
+
+Parameterize query inputs (keywords, experience, time window, start/count).
+Modularize into:
+httpClient (headers/cookies), buildQuery (params → URL), fetchJobCards, normalizeJobCards, persistDump.
+Switch to TypeScript with clear models for normalized job data and Voyager entities.
+Add persistence (e.g., local DB or JSON index) and a simple “diff new IDs” step.
+Explore a decoration or endpoint that includes postedAt and job URLs.
+Fetched and reviewed the current implementation; you’re correctly calling Voyager with valid headers, normalizing JobPostingCards, and saving both raw and normalized outputs.
