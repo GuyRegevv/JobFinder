@@ -7,6 +7,7 @@
     "start": "node index.mjs",
     "start:debug": "NODE_DEBUG=axios node index.mjs",
     "send:results": "node scripts/sendResults.mjs",
+    "start:all": "node index.mjs && node scripts/sendResults.mjs",
     "smtp:verify": "node scripts/verifySmtp.mjs"
   },
   "dependencies": {
