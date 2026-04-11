@@ -4,6 +4,6 @@ export const DEFAULT_QUERY_PARAMS = {
   //keywords: ["software developer"],
   experience: ["2"], // Entry level
   timePostedRange: ["r86400"], // Last 24 hours
-  count: 25,
+  count: 100,
   start: 0,
 };
