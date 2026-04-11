@@ -13,12 +13,16 @@ import {
   getStats,
   getDb,
 } from "./lib/db/index.js";
+import { notifyNewJobs } from "./lib/notifications/ntfy.js";
 import { DEFAULT_QUERY_PARAMS } from "./config.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 3000;
 const CRON_SCHEDULE = process.env.CRON_SCHEDULE || "0 9,13,18 * * *"; // 9am, 1pm, 6pm
+const NTFY_TOPIC = process.env.NTFY_TOPIC || "";
+const NTFY_SERVER = process.env.NTFY_SERVER || "https://ntfy.sh";
+const NTFY_CLICK_URL = process.env.NTFY_CLICK_URL || "";
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
@@ -52,6 +56,20 @@ async function fetchJobs() {
     };
 
     console.log(`[fetch] Complete: ${jobs.length} found, ${newJobs.length} new`);
+
+    // Send push notification if there are new jobs
+    if (newJobs.length > 0 && NTFY_TOPIC) {
+      try {
+        await notifyNewJobs(newJobs, {
+          topic: NTFY_TOPIC,
+          server: NTFY_SERVER,
+          clickUrl: NTFY_CLICK_URL,
+        });
+      } catch (ntfyErr) {
+        console.error("[ntfy] Failed to send notification:", ntfyErr.message);
+      }
+    }
+
     return lastFetch;
   } catch (err) {
     lastFetch = {
@@ -136,4 +154,9 @@ app.listen(PORT, () => {
   getDb();
   console.log(`[server] Running on http://localhost:${PORT}`);
   console.log(`[server] Cron schedule: ${CRON_SCHEDULE}`);
+  if (NTFY_TOPIC) {
+    console.log(`[server] Ntfy notifications: ${NTFY_SERVER}/${NTFY_TOPIC}`);
+  } else {
+    console.log(`[server] Ntfy notifications: disabled (no NTFY_TOPIC set)`);
+  }
 });
