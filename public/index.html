@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JobFinderJS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0a0a0a;
+      --bg-secondary: #141414;
+      --bg-card: #1a1a1a;
+      --bg-card-hover: #222222;
+      --border: #2a2a2a;
+      --text-primary: #fafafa;
+      --text-secondary: #888888;
+      --text-muted: #555555;
+      --accent: #f59e0b;
+      --accent-dim: #b45309;
+      --success: #22c55e;
+      --ignored: #6b7280;
+      --font-display: 'Syne', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: var(--font-mono);
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+
+    /* Subtle grain overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0.03;
+      pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+    }
+
+    /* Header */
+    .header {
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      padding: 1.5rem 2rem;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-content {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 2rem;
+    }
+
+    .logo {
+      font-family: var(--font-display);
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .logo-icon {
+      width: 32px;
+      height: 32px;
+      background: var(--accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+    }
+
+    .stats-bar {
+      display: flex;
+      gap: 2rem;
+      font-size: 0.8rem;
+    }
+
+    .stat {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+
+    .stat-label {
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-size: 0.65rem;
+      letter-spacing: 0.1em;
+    }
+
+    .stat-value {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    .stat-value.accent { color: var(--accent); }
+
+    .header-actions {
+      display: flex;
+      gap: 0.75rem;
+    }
+
+    /* Buttons */
+    .btn {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 500;
+      padding: 0.6rem 1rem;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .btn:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--text-muted);
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--bg-primary);
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-dim);
+      border-color: var(--accent-dim);
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn.loading {
+      position: relative;
+      color: transparent;
+    }
+
+    .btn.loading::after {
+      content: '';
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      top: 50%;
+      left: 50%;
+      margin: -7px 0 0 -7px;
+      border: 2px solid var(--bg-primary);
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Main content */
+    .main {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    /* Filters */
+    .filters {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .filter-btn {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      padding: 0.4rem 0.8rem;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .filter-btn:hover {
+      color: var(--text-primary);
+      border-color: var(--text-muted);
+    }
+
+    .filter-btn.active {
+      background: var(--text-primary);
+      color: var(--bg-primary);
+      border-color: var(--text-primary);
+    }
+
+    /* Jobs grid */
+    .jobs-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+      gap: 1rem;
+    }
+
+    /* Job card */
+    .job-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      padding: 1.25rem;
+      transition: all 0.2s ease;
+      opacity: 0;
+      animation: fadeSlideIn 0.4s ease forwards;
+      position: relative;
+    }
+
+    .job-card:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--text-muted);
+      transform: translateY(-2px);
+    }
+
+    .job-card.status-applied {
+      border-left: 3px solid var(--success);
+    }
+
+    .job-card.status-ignored {
+      opacity: 0.5;
+      border-left: 3px solid var(--ignored);
+    }
+
+    @keyframes fadeSlideIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .job-card:nth-child(1) { animation-delay: 0.02s; }
+    .job-card:nth-child(2) { animation-delay: 0.04s; }
+    .job-card:nth-child(3) { animation-delay: 0.06s; }
+    .job-card:nth-child(4) { animation-delay: 0.08s; }
+    .job-card:nth-child(5) { animation-delay: 0.10s; }
+    .job-card:nth-child(6) { animation-delay: 0.12s; }
+    .job-card:nth-child(7) { animation-delay: 0.14s; }
+    .job-card:nth-child(8) { animation-delay: 0.16s; }
+    .job-card:nth-child(9) { animation-delay: 0.18s; }
+    .job-card:nth-child(10) { animation-delay: 0.20s; }
+
+    .job-title {
+      font-family: var(--font-display);
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      line-height: 1.3;
+    }
+
+    .job-title a {
+      color: var(--text-primary);
+      text-decoration: none;
+      transition: color 0.15s ease;
+    }
+
+    .job-title a:hover {
+      color: var(--accent);
+    }
+
+    .job-company {
+      font-size: 0.8rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .job-company a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      transition: color 0.15s ease;
+    }
+
+    .job-company a:hover {
+      color: var(--accent);
+    }
+
+    .job-location {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-bottom: 1rem;
+    }
+
+    .job-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .job-time {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+    }
+
+    .job-actions {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .job-action {
+      font-size: 0.65rem;
+      padding: 0.3rem 0.5rem;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .job-action:hover {
+      color: var(--text-primary);
+      border-color: var(--text-muted);
+    }
+
+    .job-action.active {
+      background: var(--success);
+      border-color: var(--success);
+      color: var(--bg-primary);
+    }
+
+    .job-action.ignored.active {
+      background: var(--ignored);
+      border-color: var(--ignored);
+    }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 4rem 2rem;
+      color: var(--text-muted);
+    }
+
+    .empty-state-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+      opacity: 0.3;
+    }
+
+    /* Toast notifications */
+    .toast-container {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      z-index: 1000;
+    }
+
+    .toast {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      padding: 0.75rem 1rem;
+      font-size: 0.75rem;
+      animation: slideIn 0.3s ease;
+    }
+
+    .toast.success { border-color: var(--success); }
+    .toast.error { border-color: #ef4444; }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateX(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .header-content {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .stats-bar {
+        flex-wrap: wrap;
+        gap: 1rem;
+      }
+
+      .jobs-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .main {
+        padding: 1rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-content">
+      <div class="logo">
+        <div class="logo-icon">JF</div>
+        JobFinderJS
+      </div>
+
+      <div class="stats-bar">
+        <div class="stat">
+          <span class="stat-label">Total Jobs</span>
+          <span class="stat-value" id="stat-total">--</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">New</span>
+          <span class="stat-value accent" id="stat-new">--</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Applied</span>
+          <span class="stat-value" id="stat-applied">--</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Last Fetch</span>
+          <span class="stat-value" id="stat-last-fetch">--</span>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <button class="btn" id="btn-refresh">Refresh</button>
+        <button class="btn btn-primary" id="btn-fetch">Fetch Jobs</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="filters">
+      <button class="filter-btn active" data-filter="all">All</button>
+      <button class="filter-btn" data-filter="new">New</button>
+      <button class="filter-btn" data-filter="applied">Applied</button>
+      <button class="filter-btn" data-filter="ignored">Ignored</button>
+    </div>
+
+    <div class="jobs-grid" id="jobs-grid">
+      <!-- Jobs rendered here -->
+    </div>
+
+    <div class="empty-state" id="empty-state" style="display: none;">
+      <div class="empty-state-icon">◇</div>
+      <p>No jobs found</p>
+    </div>
+  </main>
+
+  <div class="toast-container" id="toast-container"></div>
+
+  <script>
+    const API = {
+      async getJobs(ttl = 168) { // 7 days default
+        const res = await fetch(`/api/jobs?ttl=${ttl}`);
+        return res.json();
+      },
+      async getAllJobs() {
+        const res = await fetch('/api/jobs/all');
+        return res.json();
+      },
+      async getStats() {
+        const res = await fetch('/api/stats');
+        return res.json();
+      },
+      async updateStatus(id, status) {
+        const res = await fetch(`/api/jobs/${id}/status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status })
+        });
+        return res.json();
+      },
+      async fetchJobs() {
+        const res = await fetch('/api/fetch', { method: 'POST' });
+        return res.json();
+      }
+    };
+
+    let jobs = [];
+    let currentFilter = 'all';
+
+    // ─────────────────────────────────────────────────────────
+    // Render functions
+    // ─────────────────────────────────────────────────────────
+    function formatTime(isoString) {
+      if (!isoString) return '--';
+      const date = new Date(isoString);
+      const now = new Date();
+      const diffMs = now - date;
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffHours = Math.floor(diffMs / 3600000);
+      const diffDays = Math.floor(diffMs / 86400000);
+
+      if (diffMins < 1) return 'just now';
+      if (diffMins < 60) return `${diffMins}m ago`;
+      if (diffHours < 24) return `${diffHours}h ago`;
+      return `${diffDays}d ago`;
+    }
+
+    function renderJob(job) {
+      const statusClass = job.status !== 'new' ? `status-${job.status}` : '';
+      return `
+        <article class="job-card ${statusClass}" data-id="${job.id}" data-status="${job.status}">
+          <h3 class="job-title">
+            <a href="${job.url}" target="_blank" rel="noopener">${escapeHtml(job.title)}</a>
+          </h3>
+          <div class="job-company">
+            <a href="${job.company_page_url || '#'}" target="_blank" rel="noopener">${escapeHtml(job.company)}</a>
+          </div>
+          <div class="job-location">${escapeHtml(job.location)}</div>
+          <div class="job-meta">
+            <span class="job-time">${formatTime(job.first_seen_at)}</span>
+            <div class="job-actions">
+              <button class="job-action ${job.status === 'applied' ? 'active' : ''}" data-action="applied">Applied</button>
+              <button class="job-action ignored ${job.status === 'ignored' ? 'active' : ''}" data-action="ignored">Ignore</button>
+            </div>
+          </div>
+        </article>
+      `;
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      })[c]);
+    }
+
+    function renderJobs() {
+      const grid = document.getElementById('jobs-grid');
+      const empty = document.getElementById('empty-state');
+
+      const filtered = currentFilter === 'all'
+        ? jobs
+        : jobs.filter(j => j.status === currentFilter);
+
+      if (filtered.length === 0) {
+        grid.innerHTML = '';
+        empty.style.display = 'block';
+      } else {
+        empty.style.display = 'none';
+        grid.innerHTML = filtered.map(renderJob).join('');
+      }
+    }
+
+    function renderStats(stats) {
+      const byStatus = {};
+      (stats.byStatus || []).forEach(s => byStatus[s.status] = s.count);
+
+      document.getElementById('stat-total').textContent = stats.total || 0;
+      document.getElementById('stat-new').textContent = byStatus.new || 0;
+      document.getElementById('stat-applied').textContent = byStatus.applied || 0;
+      document.getElementById('stat-last-fetch').textContent = formatTime(stats.lastFetch?.time);
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // Toast notifications
+    // ─────────────────────────────────────────────────────────
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.textContent = message;
+      container.appendChild(toast);
+
+      setTimeout(() => toast.remove(), 3000);
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // Event handlers
+    // ─────────────────────────────────────────────────────────
+    async function loadData() {
+      try {
+        const [jobsData, statsData] = await Promise.all([
+          API.getAllJobs(),
+          API.getStats()
+        ]);
+        jobs = jobsData.jobs;
+        renderJobs();
+        renderStats(statsData);
+      } catch (err) {
+        showToast('Failed to load data', 'error');
+      }
+    }
+
+    async function handleFetch() {
+      const btn = document.getElementById('btn-fetch');
+      btn.classList.add('loading');
+      btn.disabled = true;
+
+      try {
+        const result = await API.fetchJobs();
+        if (result.skipped) {
+          showToast('Fetch already in progress', 'info');
+        } else if (result.status === 'success') {
+          showToast(`Found ${result.jobsFound} jobs (${result.newJobs} new)`, 'success');
+          await loadData();
+        } else {
+          showToast('Fetch failed: ' + result.error, 'error');
+        }
+      } catch (err) {
+        showToast('Fetch failed', 'error');
+      } finally {
+        btn.classList.remove('loading');
+        btn.disabled = false;
+      }
+    }
+
+    async function handleStatusChange(jobId, newStatus) {
+      const job = jobs.find(j => j.id === jobId);
+      if (!job) return;
+
+      // Toggle: if already this status, set back to 'new'
+      const status = job.status === newStatus ? 'new' : newStatus;
+
+      try {
+        await API.updateStatus(jobId, status);
+        job.status = status;
+        renderJobs();
+        showToast(`Job marked as ${status}`, 'success');
+      } catch (err) {
+        showToast('Failed to update status', 'error');
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // Initialize
+    // ─────────────────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', () => {
+      loadData();
+
+      // Fetch button
+      document.getElementById('btn-fetch').addEventListener('click', handleFetch);
+
+      // Refresh button
+      document.getElementById('btn-refresh').addEventListener('click', loadData);
+
+      // Filter buttons
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          currentFilter = btn.dataset.filter;
+          renderJobs();
+        });
+      });
+
+      // Job action buttons (delegated)
+      document.getElementById('jobs-grid').addEventListener('click', e => {
+        const actionBtn = e.target.closest('.job-action');
+        if (!actionBtn) return;
+
+        const card = actionBtn.closest('.job-card');
+        const jobId = card.dataset.id;
+        const action = actionBtn.dataset.action;
+
+        handleStatusChange(jobId, action);
+      });
+    });
+  </script>
+</body>
+</html>

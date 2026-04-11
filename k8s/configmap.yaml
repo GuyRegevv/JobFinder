@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jobfinder-config
+  namespace: jobfinder
+data:
+  PORT: "3000"
+  CRON_SCHEDULE: "0 9,13,18 * * *"
