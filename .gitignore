@@ -2,5 +2,6 @@ node_modules/
 .env
 results/
 logs/
+data/
 .DS_Store
 npm-debug.log*

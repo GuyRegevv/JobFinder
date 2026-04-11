@@ -1,0 +1,27 @@
+# Dependencies (will be installed fresh)
+node_modules/
+
+# Local data (should be mounted as volume in k8s)
+data/
+results/
+logs/
+
+# Environment (secrets should come from k8s secrets)
+.env
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+*.md
+extras/
