@@ -5,7 +5,7 @@ metadata:
   namespace: jobfinder
 data:
   PORT: "3000"
-  CRON_SCHEDULE: "0 9,13,18 * * *"
+  CRON_SCHEDULE: "0 6,10,15 * * *"  # 9am, 1pm, 6pm Israel time (UTC+3)
   # Ntfy push notifications (set NTFY_TOPIC to enable)
   NTFY_TOPIC: "guyreg-jobs" # e.g., "guyreg-jobs"
   NTFY_SERVER: "https://ntfy.sh"

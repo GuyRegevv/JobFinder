@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cloudflared
-  namespace: jobfinder
+  namespace: cloudflared
 spec:
   replicas: 1
   selector:
@@ -18,5 +18,13 @@ spec:
           image: cloudflare/cloudflared:latest
           args:
             - tunnel
-            - --url
-            - http://jobfinder:80
+            - --no-autoupdate
+            - run
+            - --token
+            - $(TUNNEL_TOKEN)
+          env:
+            - name: TUNNEL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: tunnel-credentials
+                  key: token
