@@ -784,18 +784,38 @@
         await API.updateStatus(jobId, status);
         job.status = status;
 
-        // After removal, set focus to same position (now next card) or last
         if (willLeaveView) {
-          const filteredAfter = (currentFilter === 'all' ? jobs : jobs.filter(j => j.status === currentFilter))
-            .filter(j => {
-              if (!searchQuery) return true;
-              const q = searchQuery.toLowerCase();
-              return (j.title || '').toLowerCase().includes(q) || (j.company || '').toLowerCase().includes(q);
+          // Remove the card from the DOM without re-rendering everything
+          if (card) card.remove();
+
+          // Restore focus to the next card (or last)
+          const grid = document.getElementById('jobs-grid');
+          const cards = grid.querySelectorAll('.job-card');
+          const newFocusIdx = Math.min(removedIdx, Math.max(cards.length - 1, 0));
+          focusedIndex = newFocusIdx;
+          cards.forEach((c, i) => c.classList.toggle('focused', i === newFocusIdx));
+
+          // Show empty state if no cards remain
+          const empty = document.getElementById('empty-state');
+          if (cards.length === 0) {
+            grid.innerHTML = '';
+            empty.style.display = 'block';
+          } else {
+            empty.style.display = 'none';
+          }
+        } else {
+          // Card stays in view — update it in-place
+          if (card) {
+            card.dataset.status = status;
+            card.className = `job-card${status !== 'new' ? ` status-${status}` : ''}`;
+            if (card.classList.contains('focused')) card.classList.add('focused');
+            card.querySelectorAll('.job-action').forEach(btn => {
+              btn.classList.toggle('active', btn.dataset.action === status);
             });
-          focusedIndex = Math.min(removedIdx, Math.max(filteredAfter.length - 1, 0));
+          }
         }
 
-        renderJobs();
+        updateCountBadges();
         showToast(`Job marked as ${status}`, 'success');
       } catch (err) {
         showToast('Failed to update status', 'error');
