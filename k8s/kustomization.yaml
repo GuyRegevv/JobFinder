@@ -9,3 +9,4 @@ resources:
   - pvc.yaml
   - deployment.yaml
   - service.yaml
+  # cloudflare-tunnel.yaml is deployed separately (different namespace)
