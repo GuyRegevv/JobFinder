@@ -713,12 +713,35 @@
       const job = jobs.find(j => j.id === jobId);
       if (!job) return;
 
-      // Toggle: if already this status, set back to 'new'
       const status = job.status === newStatus ? 'new' : newStatus;
+
+      // Determine focused index before removal so we can restore after re-render
+      const filteredBefore = getFilteredJobs();
+      const removedIdx = filteredBefore.findIndex(j => j.id === jobId);
+
+      // Animate card out if it will leave the current view
+      const willLeaveView = status !== currentFilter && currentFilter !== 'all';
+      const card = document.querySelector(`.job-card[data-id="${jobId}"]`);
+      if (card && willLeaveView) {
+        card.classList.add('removing');
+        await new Promise(r => setTimeout(r, 250));
+      }
 
       try {
         await API.updateStatus(jobId, status);
         job.status = status;
+
+        // After removal, set focus to same position (now next card) or last
+        if (willLeaveView) {
+          const filteredAfter = (currentFilter === 'all' ? jobs : jobs.filter(j => j.status === currentFilter))
+            .filter(j => {
+              if (!searchQuery) return true;
+              const q = searchQuery.toLowerCase();
+              return (j.title || '').toLowerCase().includes(q) || (j.company || '').toLowerCase().includes(q);
+            });
+          focusedIndex = Math.min(removedIdx, Math.max(filteredAfter.length - 1, 0));
+        }
+
         renderJobs();
         showToast(`Job marked as ${status}`, 'success');
       } catch (err) {
