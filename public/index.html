@@ -442,6 +442,22 @@
       }
     }
 
+    .keyboard-hint {
+      position: fixed;
+      bottom: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      padding: 0.35rem 1rem;
+      font-size: 0.6rem;
+      color: var(--text-muted);
+      letter-spacing: 0.06em;
+      pointer-events: none;
+      z-index: 50;
+      white-space: nowrap;
+    }
+
     /* Responsive */
     @media (max-width: 768px) {
       .header-content {
@@ -517,6 +533,8 @@
   </main>
 
   <div class="toast-container" id="toast-container"></div>
+
+  <div class="keyboard-hint">j/k navigate · a apply · i ignore · Enter open · / search</div>
 
   <script>
     const API = {
@@ -773,6 +791,65 @@
           if (searchInput) searchInput.value = '';
           renderJobs();
         });
+      });
+
+      // Keyboard shortcuts
+      document.addEventListener('keydown', e => {
+        const searchInput = document.getElementById('search-input');
+        const searchFocused = document.activeElement === searchInput;
+
+        // / to focus search
+        if (e.key === '/' && !searchFocused) {
+          e.preventDefault();
+          searchInput?.focus();
+          return;
+        }
+
+        // All other shortcuts are blocked when search is focused
+        if (searchFocused) return;
+
+        const grid = document.getElementById('jobs-grid');
+        const cards = grid.querySelectorAll('.job-card');
+        if (cards.length === 0) return;
+
+        if (e.key === 'j' || e.key === 'ArrowDown') {
+          e.preventDefault();
+          focusedIndex = Math.min(focusedIndex + 1, cards.length - 1);
+          cards.forEach((c, i) => c.classList.toggle('focused', i === focusedIndex));
+          cards[focusedIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+          return;
+        }
+
+        if (e.key === 'k' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          focusedIndex = Math.max(focusedIndex - 1, 0);
+          cards.forEach((c, i) => c.classList.toggle('focused', i === focusedIndex));
+          cards[focusedIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+          return;
+        }
+
+        const focusedCard = cards[focusedIndex];
+        if (!focusedCard) return;
+        const jobId = focusedCard.dataset.id;
+
+        if (e.key === 'a') {
+          e.preventDefault();
+          handleStatusChange(jobId, 'applied');
+          return;
+        }
+
+        if (e.key === 'i') {
+          e.preventDefault();
+          handleStatusChange(jobId, 'ignored');
+          return;
+        }
+
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const link = focusedCard.querySelector('.job-title a');
+          if (link) window.open(link.href, '_blank', 'noopener');
+          return;
+        }
       });
 
       // Job action buttons (delegated)
