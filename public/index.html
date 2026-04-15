@@ -223,6 +223,40 @@
       border-color: var(--text-primary);
     }
 
+    .tab-count {
+      color: var(--text-muted);
+      font-size: 0.65rem;
+    }
+
+    .filter-btn.active .tab-count {
+      color: var(--bg-primary);
+    }
+
+    .search-bar {
+      margin-bottom: 1.5rem;
+    }
+
+    .search-input {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      width: 100%;
+      max-width: 400px;
+      padding: 0.55rem 1rem;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+
+    .search-input:focus {
+      border-color: var(--text-muted);
+    }
+
+    .search-input::placeholder {
+      color: var(--text-muted);
+    }
+
     /* Jobs grid */
     .jobs-grid {
       display: grid;
@@ -247,6 +281,11 @@
       transform: translateY(-2px);
     }
 
+    .job-card.focused {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent);
+    }
+
     .job-card.status-applied {
       border-left: 3px solid var(--success);
     }
@@ -265,6 +304,27 @@
         opacity: 1;
         transform: translateY(0);
       }
+    }
+
+    @keyframes fadeSlideOut {
+      from {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        max-height: 300px;
+        margin-bottom: 0;
+      }
+      to {
+        opacity: 0;
+        transform: translateY(-8px) scale(0.97);
+        max-height: 0;
+        margin-bottom: -1rem;
+      }
+    }
+
+    .job-card.removing {
+      animation: fadeSlideOut 0.25s ease forwards;
+      pointer-events: none;
+      overflow: hidden;
     }
 
     .job-card:nth-child(1) { animation-delay: 0.02s; }
@@ -407,6 +467,22 @@
       }
     }
 
+    .keyboard-hint {
+      position: fixed;
+      bottom: 1rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      padding: 0.35rem 1rem;
+      font-size: 0.6rem;
+      color: var(--text-muted);
+      letter-spacing: 0.06em;
+      pointer-events: none;
+      z-index: 50;
+      white-space: nowrap;
+    }
+
     /* Responsive */
     @media (max-width: 768px) {
       .header-content {
@@ -465,10 +541,20 @@
 
   <main class="main">
     <div class="filters">
-      <button class="filter-btn active" data-filter="all">All</button>
-      <button class="filter-btn" data-filter="new">New</button>
-      <button class="filter-btn" data-filter="applied">Applied</button>
-      <button class="filter-btn" data-filter="ignored">Ignored</button>
+      <button class="filter-btn active" data-filter="new">New <span class="tab-count"></span></button>
+      <button class="filter-btn" data-filter="applied">Applied <span class="tab-count"></span></button>
+      <button class="filter-btn" data-filter="ignored">Ignored <span class="tab-count"></span></button>
+      <button class="filter-btn" data-filter="all">All <span class="tab-count"></span></button>
+    </div>
+
+    <div class="search-bar">
+      <input
+        type="text"
+        id="search-input"
+        class="search-input"
+        placeholder="/ to search by title or company"
+        autocomplete="off"
+      >
     </div>
 
     <div class="jobs-grid" id="jobs-grid">
@@ -482,6 +568,8 @@
   </main>
 
   <div class="toast-container" id="toast-container"></div>
+
+  <div class="keyboard-hint">j/k navigate · a apply · i ignore · Enter open · / search</div>
 
   <script>
     const API = {
@@ -512,7 +600,9 @@
     };
 
     let jobs = [];
-    let currentFilter = 'all';
+    let currentFilter = 'new';
+    let focusedIndex = 0;
+    let searchQuery = '';
 
     // ─────────────────────────────────────────────────────────
     // Render functions
@@ -561,13 +651,35 @@
       })[c]);
     }
 
+    function getFilteredJobs() {
+      let filtered = currentFilter === 'all'
+        ? jobs
+        : jobs.filter(j => j.status === currentFilter);
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        filtered = filtered.filter(j =>
+          (j.title || '').toLowerCase().includes(q) ||
+          (j.company || '').toLowerCase().includes(q)
+        );
+      }
+      return filtered;
+    }
+
+    function updateCountBadges() {
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        const filter = btn.dataset.filter;
+        const count = filter === 'all'
+          ? jobs.length
+          : jobs.filter(j => j.status === filter).length;
+        const badge = btn.querySelector('.tab-count');
+        if (badge) badge.textContent = count > 0 ? `[${count}]` : '';
+      });
+    }
+
     function renderJobs() {
       const grid = document.getElementById('jobs-grid');
       const empty = document.getElementById('empty-state');
-
-      const filtered = currentFilter === 'all'
-        ? jobs
-        : jobs.filter(j => j.status === currentFilter);
+      const filtered = getFilteredJobs();
 
       if (filtered.length === 0) {
         grid.innerHTML = '';
@@ -575,7 +687,16 @@
       } else {
         empty.style.display = 'none';
         grid.innerHTML = filtered.map(renderJob).join('');
+
+        const cards = grid.querySelectorAll('.job-card');
+        const clampedIndex = Math.min(focusedIndex, cards.length - 1);
+        focusedIndex = clampedIndex;
+        if (cards[clampedIndex]) {
+          cards[clampedIndex].classList.add('focused');
+        }
       }
+
+      updateCountBadges();
     }
 
     function renderStats(stats) {
@@ -645,12 +766,35 @@
       const job = jobs.find(j => j.id === jobId);
       if (!job) return;
 
-      // Toggle: if already this status, set back to 'new'
       const status = job.status === newStatus ? 'new' : newStatus;
+
+      // Determine focused index before removal so we can restore after re-render
+      const filteredBefore = getFilteredJobs();
+      const removedIdx = filteredBefore.findIndex(j => j.id === jobId);
+
+      // Animate card out if it will leave the current view
+      const willLeaveView = status !== currentFilter && currentFilter !== 'all';
+      const card = document.querySelector(`.job-card[data-id="${jobId}"]`);
+      if (card && willLeaveView) {
+        card.classList.add('removing');
+        await new Promise(r => setTimeout(r, 250));
+      }
 
       try {
         await API.updateStatus(jobId, status);
         job.status = status;
+
+        // After removal, set focus to same position (now next card) or last
+        if (willLeaveView) {
+          const filteredAfter = (currentFilter === 'all' ? jobs : jobs.filter(j => j.status === currentFilter))
+            .filter(j => {
+              if (!searchQuery) return true;
+              const q = searchQuery.toLowerCase();
+              return (j.title || '').toLowerCase().includes(q) || (j.company || '').toLowerCase().includes(q);
+            });
+          focusedIndex = Math.min(removedIdx, Math.max(filteredAfter.length - 1, 0));
+        }
+
         renderJobs();
         showToast(`Job marked as ${status}`, 'success');
       } catch (err) {
@@ -676,8 +820,90 @@
           document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
           btn.classList.add('active');
           currentFilter = btn.dataset.filter;
+          focusedIndex = 0;
+          searchQuery = '';
+          const searchInput = document.getElementById('search-input');
+          if (searchInput) searchInput.value = '';
           renderJobs();
         });
+      });
+
+      // Search input
+      const searchInput = document.getElementById('search-input');
+
+      searchInput.addEventListener('input', () => {
+        searchQuery = searchInput.value.trim();
+        focusedIndex = 0;
+        renderJobs();
+      });
+
+      searchInput.addEventListener('keydown', e => {
+        if (e.key === 'Escape') {
+          searchQuery = '';
+          searchInput.value = '';
+          searchInput.blur();
+          focusedIndex = 0;
+          renderJobs();
+        }
+      });
+
+      // Keyboard shortcuts
+      document.addEventListener('keydown', e => {
+        const searchInput = document.getElementById('search-input');
+        const searchFocused = document.activeElement === searchInput;
+
+        // / to focus search
+        if (e.key === '/' && !searchFocused) {
+          e.preventDefault();
+          searchInput?.focus();
+          return;
+        }
+
+        // All other shortcuts are blocked when search is focused
+        if (searchFocused) return;
+
+        const grid = document.getElementById('jobs-grid');
+        const cards = grid.querySelectorAll('.job-card');
+        if (cards.length === 0) return;
+
+        if (e.key === 'j' || e.key === 'ArrowDown') {
+          e.preventDefault();
+          focusedIndex = Math.min(focusedIndex + 1, cards.length - 1);
+          cards.forEach((c, i) => c.classList.toggle('focused', i === focusedIndex));
+          cards[focusedIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+          return;
+        }
+
+        if (e.key === 'k' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          focusedIndex = Math.max(focusedIndex - 1, 0);
+          cards.forEach((c, i) => c.classList.toggle('focused', i === focusedIndex));
+          cards[focusedIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+          return;
+        }
+
+        const focusedCard = cards[focusedIndex];
+        if (!focusedCard) return;
+        const jobId = focusedCard.dataset.id;
+
+        if (e.key === 'a') {
+          e.preventDefault();
+          handleStatusChange(jobId, 'applied');
+          return;
+        }
+
+        if (e.key === 'i') {
+          e.preventDefault();
+          handleStatusChange(jobId, 'ignored');
+          return;
+        }
+
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const link = focusedCard.querySelector('.job-title a');
+          if (link) window.open(link.href, '_blank', 'noopener');
+          return;
+        }
       });
 
       // Job action buttons (delegated)
