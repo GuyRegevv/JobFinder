@@ -232,6 +232,31 @@
       color: var(--bg-primary);
     }
 
+    .search-bar {
+      margin-bottom: 1.5rem;
+    }
+
+    .search-input {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      width: 100%;
+      max-width: 400px;
+      padding: 0.55rem 1rem;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+
+    .search-input:focus {
+      border-color: var(--text-muted);
+    }
+
+    .search-input::placeholder {
+      color: var(--text-muted);
+    }
+
     /* Jobs grid */
     .jobs-grid {
       display: grid;
@@ -522,6 +547,16 @@
       <button class="filter-btn" data-filter="all">All <span class="tab-count"></span></button>
     </div>
 
+    <div class="search-bar">
+      <input
+        type="text"
+        id="search-input"
+        class="search-input"
+        placeholder="/ to search by title or company"
+        autocomplete="off"
+      >
+    </div>
+
     <div class="jobs-grid" id="jobs-grid">
       <!-- Jobs rendered here -->
     </div>
@@ -791,6 +826,25 @@
           if (searchInput) searchInput.value = '';
           renderJobs();
         });
+      });
+
+      // Search input
+      const searchInput = document.getElementById('search-input');
+
+      searchInput.addEventListener('input', () => {
+        searchQuery = searchInput.value.trim();
+        focusedIndex = 0;
+        renderJobs();
+      });
+
+      searchInput.addEventListener('keydown', e => {
+        if (e.key === 'Escape') {
+          searchQuery = '';
+          searchInput.value = '';
+          searchInput.blur();
+          focusedIndex = 0;
+          renderJobs();
+        }
       });
 
       // Keyboard shortcuts
