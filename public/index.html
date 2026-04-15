@@ -256,6 +256,11 @@
       transform: translateY(-2px);
     }
 
+    .job-card.focused {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent);
+    }
+
     .job-card.status-applied {
       border-left: 3px solid var(--success);
     }
@@ -274,6 +279,27 @@
         opacity: 1;
         transform: translateY(0);
       }
+    }
+
+    @keyframes fadeSlideOut {
+      from {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        max-height: 300px;
+        margin-bottom: 0;
+      }
+      to {
+        opacity: 0;
+        transform: translateY(-8px) scale(0.97);
+        max-height: 0;
+        margin-bottom: -1rem;
+      }
+    }
+
+    .job-card.removing {
+      animation: fadeSlideOut 0.25s ease forwards;
+      pointer-events: none;
+      overflow: hidden;
     }
 
     .job-card:nth-child(1) { animation-delay: 0.02s; }
@@ -608,6 +634,13 @@
       } else {
         empty.style.display = 'none';
         grid.innerHTML = filtered.map(renderJob).join('');
+
+        const cards = grid.querySelectorAll('.job-card');
+        const clampedIndex = Math.min(focusedIndex, cards.length - 1);
+        focusedIndex = clampedIndex;
+        if (cards[clampedIndex]) {
+          cards[clampedIndex].classList.add('focused');
+        }
       }
 
       updateCountBadges();
