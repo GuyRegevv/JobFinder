@@ -223,6 +223,15 @@
       border-color: var(--text-primary);
     }
 
+    .tab-count {
+      color: var(--text-muted);
+      font-size: 0.65rem;
+    }
+
+    .filter-btn.active .tab-count {
+      color: var(--bg-primary);
+    }
+
     /* Jobs grid */
     .jobs-grid {
       display: grid;
@@ -465,10 +474,10 @@
 
   <main class="main">
     <div class="filters">
-      <button class="filter-btn active" data-filter="all">All</button>
-      <button class="filter-btn" data-filter="new">New</button>
-      <button class="filter-btn" data-filter="applied">Applied</button>
-      <button class="filter-btn" data-filter="ignored">Ignored</button>
+      <button class="filter-btn active" data-filter="new">New <span class="tab-count"></span></button>
+      <button class="filter-btn" data-filter="applied">Applied <span class="tab-count"></span></button>
+      <button class="filter-btn" data-filter="ignored">Ignored <span class="tab-count"></span></button>
+      <button class="filter-btn" data-filter="all">All <span class="tab-count"></span></button>
     </div>
 
     <div class="jobs-grid" id="jobs-grid">
@@ -512,7 +521,9 @@
     };
 
     let jobs = [];
-    let currentFilter = 'all';
+    let currentFilter = 'new';
+    let focusedIndex = 0;
+    let searchQuery = '';
 
     // ─────────────────────────────────────────────────────────
     // Render functions
@@ -561,13 +572,35 @@
       })[c]);
     }
 
+    function getFilteredJobs() {
+      let filtered = currentFilter === 'all'
+        ? jobs
+        : jobs.filter(j => j.status === currentFilter);
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        filtered = filtered.filter(j =>
+          (j.title || '').toLowerCase().includes(q) ||
+          (j.company || '').toLowerCase().includes(q)
+        );
+      }
+      return filtered;
+    }
+
+    function updateCountBadges() {
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        const filter = btn.dataset.filter;
+        const count = filter === 'all'
+          ? jobs.length
+          : jobs.filter(j => j.status === filter).length;
+        const badge = btn.querySelector('.tab-count');
+        if (badge) badge.textContent = count > 0 ? `[${count}]` : '';
+      });
+    }
+
     function renderJobs() {
       const grid = document.getElementById('jobs-grid');
       const empty = document.getElementById('empty-state');
-
-      const filtered = currentFilter === 'all'
-        ? jobs
-        : jobs.filter(j => j.status === currentFilter);
+      const filtered = getFilteredJobs();
 
       if (filtered.length === 0) {
         grid.innerHTML = '';
@@ -576,6 +609,8 @@
         empty.style.display = 'none';
         grid.innerHTML = filtered.map(renderJob).join('');
       }
+
+      updateCountBadges();
     }
 
     function renderStats(stats) {
@@ -676,6 +711,10 @@
           document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
           btn.classList.add('active');
           currentFilter = btn.dataset.filter;
+          focusedIndex = 0;
+          searchQuery = '';
+          const searchInput = document.getElementById('search-input');
+          if (searchInput) searchInput.value = '';
           renderJobs();
         });
       });
