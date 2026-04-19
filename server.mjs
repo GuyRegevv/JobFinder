@@ -120,6 +120,8 @@ async function runCheckpointFetch() {
           topic: NTFY_TOPIC,
           server: NTFY_SERVER,
           clickUrl: NTFY_CLICK_URL,
+          label: "Checkpoint Job",
+          tags: ["shield"],
         });
       } catch (ntfyErr) {
         console.error('[checkpoint][ntfy] Failed:', ntfyErr.message);
