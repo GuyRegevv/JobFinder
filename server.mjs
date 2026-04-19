@@ -15,6 +15,8 @@ import {
 } from "./lib/db/index.js";
 import { notifyNewJobs } from "./lib/notifications/ntfy.js";
 import { DEFAULT_QUERY_PARAMS } from "./config.js";
+import { initCheckpointTable, upsertCheckpointJobs, getCheckpointJobs, deleteCheckpointJob } from './lib/db/checkpoint.js';
+import { fetchCheckpointJobs } from './lib/jobs/fetchCheckpointJobs.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -30,6 +32,8 @@ app.use(express.static(path.join(__dirname, "public")));
 // Track fetch status
 let lastFetch = { time: null, status: null, jobsFound: 0, newJobs: 0 };
 let isFetching = false;
+let lastCheckpointFetch = { time: null, status: null, jobsFound: 0, newJobs: 0 };
+let isCheckpointFetching = false;
 
 // ─────────────────────────────────────────────────────────────
 // Job fetching logic
@@ -85,6 +89,55 @@ async function fetchJobs() {
 }
 
 // ─────────────────────────────────────────────────────────────
+// Checkpoint fetch logic
+// ─────────────────────────────────────────────────────────────
+async function runCheckpointFetch() {
+  if (isCheckpointFetching) {
+    console.log('[checkpoint] Already fetching, skipping...');
+    return;
+  }
+
+  isCheckpointFetching = true;
+  console.log(`[checkpoint] Starting fetch at ${new Date().toISOString()}`);
+
+  try {
+    const { jobs } = await fetchCheckpointJobs();
+    const { newJobs, updatedCount } = upsertCheckpointJobs(jobs);
+
+    lastCheckpointFetch = {
+      time: new Date().toISOString(),
+      status: 'success',
+      jobsFound: jobs.length,
+      newJobs: newJobs.length,
+      updated: updatedCount,
+    };
+
+    console.log(`[checkpoint] Complete: ${jobs.length} found, ${newJobs.length} new`);
+
+    if (newJobs.length > 0 && NTFY_TOPIC) {
+      try {
+        await notifyNewJobs(newJobs, {
+          topic: NTFY_TOPIC,
+          server: NTFY_SERVER,
+          clickUrl: NTFY_CLICK_URL,
+        });
+      } catch (ntfyErr) {
+        console.error('[checkpoint][ntfy] Failed:', ntfyErr.message);
+      }
+    }
+  } catch (err) {
+    lastCheckpointFetch = {
+      time: new Date().toISOString(),
+      status: 'error',
+      error: err.message,
+    };
+    console.error('[checkpoint] Error:', err.message);
+  } finally {
+    isCheckpointFetching = false;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
 // Cron scheduler
 // ─────────────────────────────────────────────────────────────
 cron.schedule(CRON_SCHEDULE, () => {
@@ -93,6 +146,13 @@ cron.schedule(CRON_SCHEDULE, () => {
 });
 
 console.log(`[cron] Scheduled: "${CRON_SCHEDULE}"`);
+
+cron.schedule('0 * * * *', () => {
+  console.log(`[checkpoint-cron] Triggered at ${new Date().toISOString()}`);
+  runCheckpointFetch();
+});
+
+console.log('[cron] Checkpoint scheduled: every hour');
 
 // ─────────────────────────────────────────────────────────────
 // API Routes
@@ -130,10 +190,22 @@ app.post("/api/fetch", async (req, res) => {
   res.json(result);
 });
 
+// Get all checkpoint jobs
+app.get('/api/checkpoint/jobs', (req, res) => {
+  const jobs = getCheckpointJobs();
+  res.json({ jobs, count: jobs.length });
+});
+
+// Delete a checkpoint job (hard delete)
+app.delete('/api/checkpoint/jobs/:id', (req, res) => {
+  deleteCheckpointJob(req.params.id);
+  res.json({ success: true });
+});
+
 // Get stats
 app.get("/api/stats", (req, res) => {
   const stats = getStats();
-  res.json({ ...stats, lastFetch, isFetching });
+  res.json({ ...stats, lastFetch, isFetching, lastCheckpointFetch });
 });
 
 // Health check
@@ -152,6 +224,7 @@ app.get("/{*splat}", (req, res) => {
 app.listen(PORT, () => {
   // Initialize DB
   getDb();
+  initCheckpointTable();
   console.log(`[server] Running on http://localhost:${PORT}`);
   console.log(`[server] Cron schedule: ${CRON_SCHEDULE}`);
   if (NTFY_TOPIC) {
