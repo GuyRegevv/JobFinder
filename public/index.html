@@ -631,6 +631,14 @@
       async fetchJobs() {
         const res = await fetch('/api/fetch', { method: 'POST' });
         return res.json();
+      },
+      async getCheckpointJobs() {
+        const res = await fetch('/api/checkpoint/jobs');
+        return res.json();
+      },
+      async deleteCheckpointJob(id) {
+        const res = await fetch(`/api/checkpoint/jobs/${id}`, { method: 'DELETE' });
+        return res.json();
       }
     };
 
@@ -638,6 +646,7 @@
     let currentFilter = 'new';
     let focusedIndex = 0;
     let searchQuery = '';
+    let checkpointJobs = [];
 
     // ─────────────────────────────────────────────────────────
     // Render functions
@@ -679,6 +688,22 @@
       `;
     }
 
+    function renderCheckpointJob(job) {
+      return `
+        <article class="job-card checkpoint-card" data-id="${job.id}">
+          <h3 class="job-title">
+            <a href="${escapeHtml(job.link)}" target="_blank" rel="noopener">${escapeHtml(job.title)}</a>
+          </h3>
+          <div class="job-meta">
+            <span class="job-time">${formatTime(job.first_seen_at)}</span>
+            <div class="job-actions">
+              <button class="job-action checkpoint-delete" data-action="delete">Delete</button>
+            </div>
+          </div>
+        </article>
+      `;
+    }
+
     function escapeHtml(str) {
       if (!str) return '';
       return str.replace(/[&<>"']/g, c => ({
@@ -687,6 +712,11 @@
     }
 
     function getFilteredJobs() {
+      if (currentFilter === 'checkpoint') {
+        if (!searchQuery) return checkpointJobs;
+        const q = searchQuery.toLowerCase();
+        return checkpointJobs.filter(j => (j.title || '').toLowerCase().includes(q));
+      }
       let filtered = currentFilter === 'all'
         ? jobs
         : jobs.filter(j => j.status === currentFilter);
@@ -703,9 +733,14 @@
     function updateCountBadges() {
       document.querySelectorAll('.filter-btn').forEach(btn => {
         const filter = btn.dataset.filter;
-        const count = filter === 'all'
-          ? jobs.length
-          : jobs.filter(j => j.status === filter).length;
+        let count;
+        if (filter === 'checkpoint') {
+          count = checkpointJobs.length;
+        } else if (filter === 'all') {
+          count = jobs.length;
+        } else {
+          count = jobs.filter(j => j.status === filter).length;
+        }
         const badge = btn.querySelector('.tab-count');
         if (badge) badge.textContent = count > 0 ? `[${count}]` : '';
       });
@@ -721,7 +756,8 @@
         empty.style.display = 'block';
       } else {
         empty.style.display = 'none';
-        grid.innerHTML = filtered.map(renderJob).join('');
+        const renderFn = currentFilter === 'checkpoint' ? renderCheckpointJob : renderJob;
+        grid.innerHTML = filtered.map(renderFn).join('');
 
         const cards = grid.querySelectorAll('.job-card');
         const clampedIndex = Math.min(focusedIndex, cards.length - 1);
@@ -742,6 +778,7 @@
       document.getElementById('stat-new').textContent = byStatus.new || 0;
       document.getElementById('stat-applied').textContent = byStatus.applied || 0;
       document.getElementById('stat-last-fetch').textContent = formatTime(stats.lastFetch?.time);
+      document.getElementById('stat-last-fetch-cp').textContent = formatTime(stats.lastCheckpointFetch?.time);
     }
 
     // ─────────────────────────────────────────────────────────
@@ -762,11 +799,13 @@
     // ─────────────────────────────────────────────────────────
     async function loadData() {
       try {
-        const [jobsData, statsData] = await Promise.all([
+        const [jobsData, statsData, checkpointData] = await Promise.all([
           API.getAllJobs(),
-          API.getStats()
+          API.getStats(),
+          API.getCheckpointJobs()
         ]);
         jobs = jobsData.jobs;
+        checkpointJobs = checkpointData.jobs;
         renderJobs();
         renderStats(statsData);
       } catch (err) {
@@ -794,6 +833,30 @@
       } finally {
         btn.classList.remove('loading');
         btn.disabled = false;
+      }
+    }
+
+    async function handleCheckpointDelete(jobId) {
+      try {
+        await API.deleteCheckpointJob(jobId);
+        checkpointJobs = checkpointJobs.filter(j => j.id !== jobId);
+
+        const card = document.querySelector(`.job-card[data-id="${jobId}"]`);
+        if (card) {
+          card.classList.add('removing');
+          await new Promise(r => setTimeout(r, 250));
+          card.remove();
+        }
+
+        const grid = document.getElementById('jobs-grid');
+        if (grid.querySelectorAll('.job-card').length === 0) {
+          document.getElementById('empty-state').style.display = 'block';
+        }
+
+        updateCountBadges();
+        showToast('Job deleted', 'success');
+      } catch (err) {
+        showToast('Failed to delete job', 'error');
       }
     }
 
@@ -963,6 +1026,13 @@
 
       // Job action buttons (delegated)
       document.getElementById('jobs-grid').addEventListener('click', e => {
+        const deleteBtn = e.target.closest('.checkpoint-delete');
+        if (deleteBtn) {
+          const card = deleteBtn.closest('.job-card');
+          handleCheckpointDelete(card.dataset.id);
+          return;
+        }
+
         const actionBtn = e.target.closest('.job-action');
         if (!actionBtn) return;
 
