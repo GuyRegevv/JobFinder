@@ -23,6 +23,7 @@
       --ignored: #6b7280;
       --font-display: 'Syne', sans-serif;
       --font-mono: 'JetBrains Mono', monospace;
+      --cp-pink: #f472b6;
     }
 
     * {
@@ -230,6 +231,35 @@
 
     .filter-btn.active .tab-count {
       color: var(--bg-primary);
+    }
+
+    .filter-btn[data-filter="checkpoint"] {
+      border-color: var(--cp-pink);
+      color: var(--cp-pink);
+    }
+
+    .filter-btn[data-filter="checkpoint"]:hover {
+      background: rgba(244, 114, 182, 0.1);
+      color: var(--cp-pink);
+    }
+
+    .filter-btn[data-filter="checkpoint"].active {
+      background: var(--cp-pink);
+      color: var(--bg-primary);
+      border-color: var(--cp-pink);
+    }
+
+    .filter-btn[data-filter="checkpoint"].active .tab-count {
+      color: var(--bg-primary);
+    }
+
+    .job-card.checkpoint-card {
+      border-left: 3px solid var(--cp-pink);
+    }
+
+    .job-action.checkpoint-delete:hover {
+      color: var(--cp-pink);
+      border-color: var(--cp-pink);
     }
 
     .search-bar {
@@ -530,6 +560,10 @@
           <span class="stat-label">Last Fetch</span>
           <span class="stat-value" id="stat-last-fetch">--</span>
         </div>
+        <div class="stat">
+          <span class="stat-label">Last Fetched CP</span>
+          <span class="stat-value" id="stat-last-fetch-cp">--</span>
+        </div>
       </div>
 
       <div class="header-actions">
@@ -545,6 +579,7 @@
       <button class="filter-btn" data-filter="applied">Applied <span class="tab-count"></span></button>
       <button class="filter-btn" data-filter="ignored">Ignored <span class="tab-count"></span></button>
       <button class="filter-btn" data-filter="all">All <span class="tab-count"></span></button>
+      <button class="filter-btn" data-filter="checkpoint">Checkpoint <span class="tab-count"></span></button>
     </div>
 
     <div class="search-bar">
