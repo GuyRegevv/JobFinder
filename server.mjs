@@ -17,6 +17,8 @@ import { notifyNewJobs } from "./lib/notifications/ntfy.js";
 import { DEFAULT_QUERY_PARAMS } from "./config.js";
 import { initCheckpointTable, upsertCheckpointJobs, getCheckpointJobs, deleteCheckpointJob } from './lib/db/checkpoint.js';
 import { fetchCheckpointJobs } from './lib/jobs/fetchCheckpointJobs.js';
+import { initShahakTable, upsertShahakJobs, getShahakJobs, deleteShahakJob } from './lib/db/shahak.js';
+import { SHAHAK_QUERY_PARAMS } from './config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -34,6 +36,8 @@ let lastFetch = { time: null, status: null, jobsFound: 0, newJobs: 0 };
 let isFetching = false;
 let lastCheckpointFetch = { time: null, status: null, jobsFound: 0, newJobs: 0 };
 let isCheckpointFetching = false;
+let lastShahakFetch = { time: null, status: null, jobsFound: 0, newJobs: 0 };
+let isShahakFetching = false;
 
 // ─────────────────────────────────────────────────────────────
 // Job fetching logic
@@ -140,6 +144,53 @@ async function runCheckpointFetch() {
 }
 
 // ─────────────────────────────────────────────────────────────
+// Shahak fetch logic
+// ─────────────────────────────────────────────────────────────
+async function runShahakFetch() {
+  if (isShahakFetching) {
+    console.log('[shahak] Already fetching, skipping...');
+    return;
+  }
+
+  isShahakFetching = true;
+  console.log(`[shahak] Starting fetch at ${new Date().toISOString()}`);
+
+  try {
+    const { jobs } = await searchJobs(SHAHAK_QUERY_PARAMS);
+    const { newJobs, updatedCount } = upsertShahakJobs(jobs);
+
+    lastShahakFetch = {
+      time: new Date().toISOString(),
+      status: 'success',
+      jobsFound: jobs.length,
+      newJobs: newJobs.length,
+      updated: updatedCount,
+    };
+
+    console.log(`[shahak] Complete: ${jobs.length} found, ${newJobs.length} new`);
+
+    if (newJobs.length > 0 && NTFY_TOPIC) {
+      try {
+        await notifyNewJobs(newJobs, {
+          topic: NTFY_TOPIC,
+          server: NTFY_SERVER,
+          clickUrl: NTFY_CLICK_URL,
+          label: 'Shahak Job',
+          tags: ['person'],
+        });
+      } catch (ntfyErr) {
+        console.error('[shahak][ntfy] Failed:', ntfyErr.message);
+      }
+    }
+  } catch (err) {
+    lastShahakFetch = { time: new Date().toISOString(), status: 'error', error: err.message };
+    console.error('[shahak] Error:', err.message);
+  } finally {
+    isShahakFetching = false;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
 // Cron scheduler
 // ─────────────────────────────────────────────────────────────
 cron.schedule(CRON_SCHEDULE, () => {
@@ -155,6 +206,13 @@ cron.schedule('0 * * * *', () => {
 });
 
 console.log('[cron] Checkpoint scheduled: every hour');
+
+cron.schedule('0 8 * * *', () => {
+  console.log(`[shahak-cron] Triggered at ${new Date().toISOString()}`);
+  runShahakFetch();
+});
+
+console.log('[cron] Shahak scheduled: 8AM daily');;
 
 // ─────────────────────────────────────────────────────────────
 // API Routes
@@ -204,6 +262,18 @@ app.delete('/api/checkpoint/jobs/:id', (req, res) => {
   res.json({ success: true });
 });
 
+// Get Shahak's jobs
+app.get('/api/shahak/jobs', (req, res) => {
+  const jobs = getShahakJobs();
+  res.json({ jobs, count: jobs.length });
+});
+
+// Soft-delete a Shahak job
+app.delete('/api/shahak/jobs/:id', (req, res) => {
+  deleteShahakJob(req.params.id);
+  res.json({ success: true });
+});
+
 // Get stats
 app.get("/api/stats", (req, res) => {
   const stats = getStats();
@@ -213,6 +283,11 @@ app.get("/api/stats", (req, res) => {
 // Health check
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", uptime: process.uptime() });
+});
+
+// Shahak's page
+app.get('/shahak', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'shahak.html'));
 });
 
 // Serve frontend for all other routes
@@ -227,6 +302,7 @@ app.listen(PORT, () => {
   // Initialize DB
   getDb();
   initCheckpointTable();
+  initShahakTable();
   console.log(`[server] Running on http://localhost:${PORT}`);
   console.log(`[server] Cron schedule: ${CRON_SCHEDULE}`);
   if (NTFY_TOPIC) {
