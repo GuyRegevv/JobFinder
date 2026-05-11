@@ -7,3 +7,12 @@ export const DEFAULT_QUERY_PARAMS = {
   count: 100,
   start: 0,
 };
+
+// Shahak's LinkedIn search params — update keywords/experience to match what he's looking for.
+export const SHAHAK_QUERY_PARAMS = {
+  keywords: ["product manager", "project manager", "program manager"],
+  experience: ["3", "4"], // Associate, Mid-Senior
+  timePostedRange: ["r86400"], // Last 24 hours
+  count: 100,
+  start: 0,
+};
