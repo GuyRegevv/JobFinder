@@ -36,7 +36,7 @@ No `status` column — no applied/ignored tracking.
 
 ### Cron
 
-Shahak's fetch runs on the same schedule as the LinkedIn cron (`CRON_SCHEDULE`). No separate env var needed.
+Shahak's fetch runs once daily at 8AM (`0 8 * * *`). Hardcoded — no env var needed.
 
 ### Notifications
 
