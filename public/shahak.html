@@ -101,6 +101,29 @@
     .btn:hover { background: var(--bg-card-hover); border-color: var(--text-muted); }
     .btn:active { transform: scale(0.98); }
 
+    .btn-primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #000;
+    }
+
+    .btn-primary:hover { background: var(--accent-dim); border-color: var(--accent-dim); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn.loading { position: relative; color: transparent; }
+    .btn.loading::after {
+      content: '';
+      position: absolute;
+      width: 14px; height: 14px;
+      top: 50%; left: 50%;
+      margin: -7px 0 0 -7px;
+      border: 2px solid #000;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
     .main {
       max-width: 1400px;
       margin: 0 auto;
@@ -277,6 +300,7 @@
       </div>
       <div class="header-actions">
         <button class="btn" id="btn-refresh">Refresh</button>
+        <button class="btn btn-primary" id="btn-fetch">Fetch Jobs</button>
       </div>
     </div>
   </header>
@@ -311,6 +335,10 @@
       },
       async deleteJob(id) {
         const res = await fetch(`/api/shahak/jobs/${id}`, { method: 'DELETE' });
+        return res.json();
+      },
+      async fetchJobs() {
+        const res = await fetch('/api/shahak/fetch', { method: 'POST' });
         return res.json();
       }
     };
@@ -428,6 +456,26 @@
       loadData();
 
       document.getElementById('btn-refresh').addEventListener('click', loadData);
+
+      document.getElementById('btn-fetch').addEventListener('click', async () => {
+        const btn = document.getElementById('btn-fetch');
+        btn.classList.add('loading');
+        btn.disabled = true;
+        try {
+          const result = await API.fetchJobs();
+          if (result.status === 'success') {
+            showToast(`Found ${result.jobsFound} jobs (${result.newJobs} new)`, 'success');
+            await loadData();
+          } else {
+            showToast('Fetch failed: ' + result.error, 'error');
+          }
+        } catch {
+          showToast('Fetch failed', 'error');
+        } finally {
+          btn.classList.remove('loading');
+          btn.disabled = false;
+        }
+      });
 
       const searchInput = document.getElementById('search-input');
 

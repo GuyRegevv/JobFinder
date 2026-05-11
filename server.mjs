@@ -274,6 +274,12 @@ app.delete('/api/shahak/jobs/:id', (req, res) => {
   res.json({ success: true });
 });
 
+// Trigger manual Shahak fetch
+app.post('/api/shahak/fetch', async (req, res) => {
+  await runShahakFetch();
+  res.json(lastShahakFetch);
+});
+
 // Get stats
 app.get("/api/stats", (req, res) => {
   const stats = getStats();
